@@ -6,6 +6,7 @@ import vid
 import asyncio
 import youtube_dl
 import socket
+import urllib.parse
 
 class Player(commands.Cog):
     def __init__(self, bot_):
@@ -69,6 +70,7 @@ class Player(commands.Cog):
     @commands.command(brief="Plays songs from YouTube")
     async def play(self, ctx, *arg):
         song = "+".join(arg[:])
+        song = urllib.parse.quote(song)
         is_url = validators.url(song)
 
         # Checks if input is an Url
