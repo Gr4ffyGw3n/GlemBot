@@ -28,8 +28,7 @@ class Player(commands.Cog):
         bot_client = ctx.voice_client
         song = pafy.new(url)
         audio = song.getbestaudio()
-        source = discord.FFmpegPCMAudio(audio.url,
-                                        executable='D:/Downloads/ffmpeg-2022-01-17-git-dcc9454ab9-essentials_build/bin/ffmpeg.exe', **self.FFMPEG_OPTIONS)
+        source = discord.FFmpegPCMAudio(audio.url, **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
