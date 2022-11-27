@@ -111,6 +111,7 @@ class Player(commands.Cog):
     @commands.command(brief="Leaves vc")
     async def leave(self, ctx):
         await ctx.voice_client.disconnect()
+        self.song_que[ctx.guild.id] = []
         await ctx.send("Goodbye!")
 
     @commands.command(brief="Plays songs from YouTube", aliases=['p'])
@@ -183,7 +184,6 @@ class Player(commands.Cog):
 
     @commands.command()
     async def remove(self,ctx, pos):
-        position = int(pos)-1
         await ctx.send(vid.vTitle(self.song_que[ctx.guild.id][position])+"has been removed!")
         self.song_que[ctx.guild.id].pop(position)
 
