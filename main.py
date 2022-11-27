@@ -5,7 +5,9 @@ import os
 from bot import Player
 
 load_dotenv()
-bot = commands.Bot(command_prefix='~')
+intents = discord.Intents.default()
+intents.messages = True
+bot = commands.Bot(command_prefix='~', intent=intents)
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -19,6 +21,7 @@ async def setup():
     await bot.wait_until_ready()
     bot.add_cog(Player(bot))
 
+print(TOKEN)
 bot.loop.create_task(setup())
 bot.run(TOKEN)
 
