@@ -30,6 +30,7 @@ class Player(commands.Cog):
             self.server_settings[guild.id]={}
             self.server_settings[guild.id]['is_loop'] = False
             self.server_settings[guild.id]['index'] = 0
+            self.server_settings[guild.id]['notify'] = True
 
     def check_perm(self, in_id):
         valid = False
@@ -66,7 +67,8 @@ class Player(commands.Cog):
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
                                                              volume=0.1)
-        await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+        if self.server_settings[ctx.guild.id]['notify']:
+            await ctx.send("Now Playing " + vid.vTitle(url) + "!")
 
     async def play_song2(self, ctx, url):
         bot_client = ctx.voice_client
@@ -183,10 +185,19 @@ class Player(commands.Cog):
             await ctx.send("Sorry, but you don't have the right permissions to kill Glemmy.")
 
     @commands.command()
-    async def remove(self,ctx, pos):
-        await ctx.send(vid.vTitle(self.song_que[ctx.guild.id][position])+"has been removed!")
-        self.song_que[ctx.guild.id].pop(position)
-
+    async def remove(self, ctx, arg):
+        position = int(arg)-1
+        current_pos = self.server_settings[ctx.guild.id]['index']
+        try:
+            self.song_que[ctx.guild.id].pop(position)
+        except:
+            output = "Index out of range or something else went wrong ;- ;;;"
+        else:
+            output = f"Track at position {position + 1} has been removed!"
+            if current_pos <= position:
+                self.server_settings[ctx.guild.id]['index'] = self.server_settings[ctx.guild.id]['index'] %\
+                                                              len(self.song_que[ctx.guild.id])
+        await ctx.send(output)
     @commands.command(brief="stops playing audio", aliases = ["s"])
     async def skip(self, ctx):
         bot_client = ctx.voice_client
@@ -203,7 +214,11 @@ class Player(commands.Cog):
     @commands.command(brief="stops playing audio")
     async def status(self, ctx):
         bot_client = ctx.voice_client
-        output = f"client_is_playing: {bot_client.is_playing()}\nqueue_looping: {self.server_settings[ctx.guild.id]['is_loop']}\nqueue index: {self.server_settings[ctx.guild.id]['index']}"
+        output = f"client_is_playing: {bot_client.is_playing()}\n" \
+                 f"queue_looping: " \
+                 f"{self.server_settings[ctx.guild.id]['is_loop']}\n" \
+                 f"queue index: {self.server_settings[ctx.guild.id]['index']}\n" \
+                 f"Notification on/off: {self.server_settings[ctx.guild.id]['notify']}"
         await ctx.send(f"```{output}```")
 
     @commands.command(brief="roll dice ~roll [how many] [what dice]")
@@ -257,3 +272,8 @@ class Player(commands.Cog):
     @commands.command(brief="clear queue")
     async def clear(self, ctx):
         self.song_que[ctx.guild.id] = []
+
+    @commands.command(brief="clear queue")
+    async def notif(self, ctx):
+        self.server_settings[ctx.guild.id]['notify'] = not self.server_settings[ctx.guild.id]['notify']
+        await self.to_msg(ctx, f"Notifications now set to: {self.server_settings[ctx.guild.id]['notify']}")
