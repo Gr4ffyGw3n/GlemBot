@@ -152,7 +152,7 @@ class Player(commands.Cog):
             queue_len = len(self.song_que[ctx.guild.id])
             if not ctx.voice_client.is_playing():
                 await self.play_song(ctx, url)
-            elif queue_len < 10:
+            elif queue_len < 20:
                 self.song_que[ctx.guild.id].append(url)
                 print(f"added song {url} to que")
                 print(f"here is the current que {self.song_que[ctx.guild.id]} to que")
@@ -183,6 +183,23 @@ class Player(commands.Cog):
             exit()
         else:
             await ctx.send("Sorry, but you don't have the right permissions to kill Glemmy.")
+
+    @commands.command()
+    async def swap(self, ctx, *args):
+        pos = []
+        output = ""
+        for item in args:
+            pos.append(int(item)-1)
+        print(pos)
+        try:
+            self.song_que[ctx.guild.id][pos[0]], self.song_que[ctx.guild.id][pos[1]] = self.song_que[ctx.guild.id][pos[1]], \
+                                                                         self.song_que[ctx.guild.id][pos[0]]
+        except:
+            output = "Something went wrong ;- ;;;"
+        else:
+            output = f"Tack {pos[0]+1} has been swapped with Track {pos[1]+1}!"
+
+        await ctx.send(output)
 
     @commands.command()
     async def remove(self, ctx, arg):
