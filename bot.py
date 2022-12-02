@@ -184,7 +184,7 @@ class Player(commands.Cog):
         else:
             await ctx.send("Sorry, but you don't have the right permissions to kill Glemmy.")
 
-    @commands.command()
+    @commands.command(brief="Swap the position between songs")
     async def swap(self, ctx, *args):
         pos = []
         output = ""
@@ -201,6 +201,27 @@ class Player(commands.Cog):
 
         await ctx.send(output)
 
+    @commands.command(brief = "Move the selected track to the desired position", aliases = ['m'])
+    async def move(self, ctx, *args):
+        pos = []
+        queue = self.song_que[ctx.guild.id]
+        for item in args:
+            pos.append(int(item)-1)
+        tmp = self.song_que[ctx.guild.id].pop(pos[0])
+        self.song_que[ctx.guild.id].insert(pos[1],tmp)
+
+        await ctx.send(f"Tack {pos[0]+1} has been moved to position {pos[1]+1}!")
+
+    @commands.command(brief="Brings selected song to top of queue", aliases = ["t"])
+    async def top(self, ctx, arg):
+        pos = int(arg)-1
+        tmp = self.song_que[ctx.guild.id].pop(pos)
+        self.song_que[ctx.guild.id].insert(0, tmp)
+
+    @commands.command()
+    async def qfill(self, ctx):
+        self.song_que[ctx.guild.id].extend(['F9z9D30rESA','8jFio-603hY'])
+
     @commands.command()
     async def remove(self, ctx, arg):
         position = int(arg)-1
@@ -215,6 +236,7 @@ class Player(commands.Cog):
                 self.server_settings[ctx.guild.id]['index'] = self.server_settings[ctx.guild.id]['index'] %\
                                                               len(self.song_que[ctx.guild.id])
         await ctx.send(output)
+
     @commands.command(brief="stops playing audio", aliases = ["s"])
     async def skip(self, ctx):
         bot_client = ctx.voice_client
@@ -289,8 +311,9 @@ class Player(commands.Cog):
     @commands.command(brief="clear queue")
     async def clear(self, ctx):
         self.song_que[ctx.guild.id] = []
+        await ctx.send("Queue has been cleared!")
 
-    @commands.command(brief="clear queue")
+    @commands.command(brief="toggles notification for when a new song is played")
     async def notif(self, ctx):
         self.server_settings[ctx.guild.id]['notify'] = not self.server_settings[ctx.guild.id]['notify']
         await self.to_msg(ctx, f"Notifications now set to: {self.server_settings[ctx.guild.id]['notify']}")
