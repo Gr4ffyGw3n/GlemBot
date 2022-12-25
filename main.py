@@ -7,7 +7,7 @@ from bot import Player
 load_dotenv()
 intents = discord.Intents.default()
 intents.messages = True
-bot = commands.Bot(command_prefix='~', intent=intents)
+bot = commands.Bot(command_prefix='=', intent=intents)
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 

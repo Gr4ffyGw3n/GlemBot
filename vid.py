@@ -1,10 +1,12 @@
 import pafy
 import os
 import urllib.request
+import urllib
 import re
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
-
+import json
+import isodate
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup as bs
 import requests
@@ -39,10 +41,18 @@ def toId(url):
 def ySearch(keyword: str):
     search_keyword=keyword
     html = urllib.request.urlopen("https://www.youtube.com/results?search_query=" + search_keyword)
+    #Getting Vid Duration
     video_ids = re.findall(r"watch\?v=(\S{11})", html.read().decode())
+    video_ids = list(dict.fromkeys(video_ids))
     song_lists = []
     for i in range (5):
-        song_lists.append(video_ids[i])
+        searchUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + video_ids[i] + "&key=" + api_key + "&part=contentDetails"
+        response = urllib.request.urlopen(searchUrl).read()
+        data = json.loads(response)
+        all_data = data['items']
+        contentDetails = all_data[0]['contentDetails']
+        duration = isodate.parse_duration(contentDetails['duration']).total_seconds()
+        song_lists.append([video_ids[i], duration])
     print(song_lists)
     return song_lists
 

@@ -39,8 +39,10 @@ class Player(commands.Cog):
             if int(in_id) == int(id['ID']):
                 valid = True
         return valid
+
     async def to_msg(self, ctx, message):
         await ctx.send(f"```{message}```")
+
     async def check_queue(self, ctx):
         if len(self.song_que[ctx.guild.id]) > 0:
             await self.play_song(ctx, self.song_que[ctx.guild.id][self.server_settings[ctx.guild.id]['index']])
@@ -56,13 +58,19 @@ class Player(commands.Cog):
             self.current[ctx.guild.id] = None
             ctx.voice_client.stop()
 
+    def to_time(self, seconds):
+        total = int(seconds)
+        hour, remainder = divmod(total, 3600)
+        minute, second = divmod(remainder, 60)
+        return hour, minute, second
+
     async def play_song(self, ctx, url):
         bot_client = ctx.voice_client
         song = pafy.new(url)
         self.current[ctx.guild.id] = song
         self.current_time[ctx.guild.id] = datetime.now()
         audio = song.getbestaudio()
-        source = discord.FFmpegPCMAudio(audio.url, **self.FFMPEG_OPTIONS)
+        source = discord.FFmpegPCMAudio(audio.url, executable="C:/FFmpeg/bin/ffmpeg.exe", **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
@@ -134,7 +142,8 @@ class Player(commands.Cog):
             v_list = vid.ySearch(song)
             output = "Glemmy found these results"
             for i in range(len(v_list)):
-                output += f"\n{str(i+1)}: {vid.vTitle(v_list[i])}"
+                hour, minute, second = self.to_time(v_list[i][1])
+                output += f"\n{str(i+1)}: " + "[{:02}:{:02}:{:02}] ".format(int(hour), int(minute), int(second)) + f"{vid.vTitle(v_list[i][0])}"
             print(output)
             await self.to_msg(ctx, output)
 
@@ -143,7 +152,7 @@ class Player(commands.Cog):
 
             selection = await self.bot.wait_for("message", check = check)
             print(v_list)
-            url = v_list[int(selection.content)-1]
+            url = v_list[int(selection.content)-1][0]
             link = vid.toLink(url)
 
         print(f"Url is {url} Link is {link}")
