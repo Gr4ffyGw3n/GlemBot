@@ -31,6 +31,7 @@ class Player(commands.Cog):
             self.server_settings[guild.id]['is_loop'] = False
             self.server_settings[guild.id]['index'] = 0
             self.server_settings[guild.id]['notify'] = True
+            self.current[guild.id] = None
 
     def check_perm(self, in_id):
         valid = False
@@ -47,9 +48,7 @@ class Player(commands.Cog):
         if len(self.song_que[ctx.guild.id]) > 0:
             await self.play_song(ctx, self.song_que[ctx.guild.id][self.server_settings[ctx.guild.id]['index']])
             if self.server_settings[ctx.guild.id]['is_loop']:
-                tmp_index = self.server_settings[ctx.guild.id]['index'] + 1
-                self.server_settings[ctx.guild.id]['index'] += 1
-                self.server_settings[ctx.guild.id]['index'] = tmp_index % len(self.song_que[ctx.guild.id])
+                self.song_que[ctx.guild.id].append(self.song_que[ctx.guild.id].pop(0))
             else:
                 self.server_settings[ctx.guild.id]['index'] = 0
                 self.song_que[ctx.guild.id].pop(0)
@@ -70,7 +69,7 @@ class Player(commands.Cog):
         self.current[ctx.guild.id] = song
         self.current_time[ctx.guild.id] = datetime.now()
         audio = song.getbestaudio()
-        source = discord.FFmpegPCMAudio(audio.url, executable="C:/FFmpeg/bin/ffmpeg.exe", **self.FFMPEG_OPTIONS)
+        source = discord.FFmpegPCMAudio(audio.url, **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
@@ -157,20 +156,17 @@ class Player(commands.Cog):
 
         print(f"Url is {url} Link is {link}")
 
-        if ctx.voice_client.source is not None:
+        if True:
             queue_len = len(self.song_que[ctx.guild.id])
-            if not ctx.voice_client.is_playing():
-                await self.play_song(ctx, url)
-            elif queue_len < 20:
+            if queue_len < 20:
                 self.song_que[ctx.guild.id].append(url)
                 print(f"added song {url} to que")
                 print(f"here is the current que {self.song_que[ctx.guild.id]} to que")
-                return await ctx.send(vid.vTitle(url) + f" has been added to the queue at position: {queue_len+1}.")
+                await ctx.send(vid.vTitle(url) + f" has been added to the queue at position: {queue_len+1}.")
             else:
                 return await ctx.send("Sorry, I can only queue up to 10 songs, please wait for the current song to finish.")
-
-        # await ctx.send(song)
-        await self.play_song(ctx, url)
+            if not ctx.voice_client.is_playing():
+                await self.check_queue(ctx)
 
     @commands.command(brief="Displays the Queue", aliases = ['q'])
     async def queue(self, ctx):

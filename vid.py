@@ -32,21 +32,29 @@ class Queue():
     async def return_song(self, ctx):
         return self.song_que[ctx.guild.id][0]
 
+
 def toLink(id):
     return "https://www.youtube.com/watch?v=" + str(id)
+
 
 def toId(url):
     return re.findall(r"watch\?v=(\S{11})", url)[0]
 
+
 def ySearch(keyword: str):
-    search_keyword=keyword
+    search_keyword = keyword
     html = urllib.request.urlopen("https://www.youtube.com/results?search_query=" + search_keyword)
-    #Getting Vid Duration
+    # Getting Vid Duration
     video_ids = re.findall(r"watch\?v=(\S{11})", html.read().decode())
     video_ids = list(dict.fromkeys(video_ids))
     song_lists = []
     for i in range (5):
-        searchUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + video_ids[i] + "&key=" + api_key + "&part=contentDetails"
+        searchUrl = "https://www.googleapis.com/youtube/v3/videos?id=" \
+                    + video_ids[i] \
+                    + "&key=" \
+                    + api_key \
+                    + "&part=contentDetails"
+
         response = urllib.request.urlopen(searchUrl).read()
         data = json.loads(response)
         all_data = data['items']
@@ -55,6 +63,7 @@ def ySearch(keyword: str):
         song_lists.append([video_ids[i], duration])
     print(song_lists)
     return song_lists
+
 
 def vTitle(url):
     print(url)
@@ -66,10 +75,12 @@ def vTitle(url):
     print(response['items'][0]['snippet']['title'])
     return response['items'][0]['snippet']['title']
 
+
 def getSource(url):
     song = pafy.new(url)
     audio = song.getbestaudio()
     return audio
+
 
 def getSource(url):
     song = pafy.new(url)
