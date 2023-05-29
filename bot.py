@@ -8,6 +8,7 @@ import socket
 import urllib.parse
 import random
 import json
+import yt_dlp
 from datetime import datetime
 
 print("bot.py loaded!")
@@ -21,6 +22,7 @@ class Player(commands.Cog):
         self.setup()
         self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5','options': '-vn'}
         self.perms = json.load(open('users.json'))
+        self.ydl_opts = {'format': 'bestaudio'}
         print("bot.py finished init")
 
     def setup(self):
@@ -46,11 +48,11 @@ class Player(commands.Cog):
 
     async def check_queue(self, ctx):
         if len(self.song_que[ctx.guild.id]) > 0:
-            await self.play_song(ctx, self.song_que[ctx.guild.id][self.server_settings[ctx.guild.id]['index']])
+            await self.play_song(ctx, self.song_que[ctx.guild.id][0])
             if self.server_settings[ctx.guild.id]['is_loop']:
                 self.song_que[ctx.guild.id].append(self.song_que[ctx.guild.id].pop(0))
             else:
-                self.server_settings[ctx.guild.id]['index'] = 0
+                # self.server_settings[ctx.guild.id]['index'] = 0
                 self.song_que[ctx.guild.id].pop(0)
 
         else:
@@ -65,30 +67,44 @@ class Player(commands.Cog):
 
     async def play_song(self, ctx, url):
         bot_client = ctx.voice_client
-        song = pafy.new(url)
-        self.current[ctx.guild.id] = song
+        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            song = ydl.extract_info(url, download=False)
+        self.current[ctx.guild.id] = url
         self.current_time[ctx.guild.id] = datetime.now()
-        audio = song.getbestaudio()
-        source = discord.FFmpegPCMAudio(audio.url, **self.FFMPEG_OPTIONS)
+        # audio = song.getbestaudio()
+        source = discord.FFmpegPCMAudio(song["url"], **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
-                                                             volume=0.1)
+                                                         volume=0.1)
         if self.server_settings[ctx.guild.id]['notify']:
             await ctx.send("Now Playing " + vid.vTitle(url) + "!")
 
     async def play_song2(self, ctx, url):
         bot_client = ctx.voice_client
         song = pafy.new(url)
-        self.current[ctx.guild.id] = song
+        self.current[ctx.guild.id] = url
         self.current_time[ctx.guild.id] = datetime.now()
         audio = song.getbestaudio()
         source = discord.FFmpegudio(url, **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
-        bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
-                                                             volume=0.1)
-        await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+
+*-        await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        for item in self.bot.voice_clients:
+            if before.channel.id == item.channel.id:
+                print(item.channel.members)
+                print(len(item.channel.members))
+                if len(item.channel.members) == 1:
+                    print("someone disconnected")
+                    await item.disconnect()
+                    self.song_que[item.guild.id] = []
+
+                    break
+
 
     @commands.command(brief="joins the voice channel")
     async def join(self, ctx):
@@ -122,6 +138,11 @@ class Player(commands.Cog):
         await ctx.voice_client.disconnect()
         self.song_que[ctx.guild.id] = []
         await ctx.send("Goodbye!")
+
+    @commands.command()
+    async def shutup(self, ctx):
+        await ctx.send(f"{ctx.author.name}, you are stupid, eat piss.")
+        await ctx.author.move_to(None)
 
     @commands.command(brief="Plays songs from YouTube", aliases=['p'])
     async def play(self, ctx, *arg):
@@ -161,18 +182,19 @@ class Player(commands.Cog):
             if queue_len < 20:
                 self.song_que[ctx.guild.id].append(url)
                 print(f"added song {url} to que")
-                print(f"here is the current que {self.song_que[ctx.guild.id]} to que")
+                print(f"here is the current que {self.song_que[ctx.guild.id]} to queue")
                 await ctx.send(vid.vTitle(url) + f" has been added to the queue at position: {queue_len+1}.")
             else:
                 return await ctx.send("Sorry, I can only queue up to 10 songs, please wait for the current song to finish.")
             if not ctx.voice_client.is_playing():
                 await self.check_queue(ctx)
 
+
     @commands.command(brief="Displays the Queue", aliases = ['q'])
     async def queue(self, ctx):
         output = ""
         if self.current[ctx.guild.id] is not None:
-            output += f"Currently playing {self.current[ctx.guild.id].title}\n"
+            output += f"Currently playing {vid.vTitle(self.current[ctx.guild.id])}\n"
         if len(self.song_que[ctx.guild.id]) == 0:
                 output = output + ("Glemmy doesn't have anything in queue! ( ..•˘___˘• .. )")
         else:
