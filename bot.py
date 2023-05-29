@@ -10,7 +10,6 @@ import random
 import json
 import yt_dlp
 from datetime import datetime
-
 print("bot.py loaded!")
 class Player(commands.Cog):
     def __init__(self, bot_):
@@ -89,8 +88,7 @@ class Player(commands.Cog):
         source = discord.FFmpegudio(url, **self.FFMPEG_OPTIONS)
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
-
-*-        await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+        await ctx.send("Now Playing " + vid.vTitle(url) + "!")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -102,10 +100,34 @@ class Player(commands.Cog):
                     print("someone disconnected")
                     await item.disconnect()
                     self.song_que[item.guild.id] = []
-
                     break
 
+    @commands.command()
+    async def makec(self, ctx):
+        await ctx.send("Trying to write")
+        out = {}
+        out['outchannels'] = {}
+        for guild in self.bot.guilds:
+            out['outchannels'][guild.id] = None
+        print(out)
+        jsout = json.dumps(out, indent = 4)
+        with open("guildsetting.json", "w") as gs:
+            gs.write(jsout)
+        await ctx.send("Written")
 
+    @commands.command()
+    async def setc(self, ctx):
+        tmp = ''
+        print("starting")
+        with open("guildsetting.json", "r") as gs:
+            jtmp = json.load(gs)
+        print(jtmp)
+        jtmp['outchannels'][ctx.guild.id] = ctx.channel.id
+        print(jtmp)
+        jout = json.dumps(jtmp, indent = 4)
+        with open("guildsetting.json", "w") as gs:
+            gs.write(jout)
+    
     @commands.command(brief="joins the voice channel")
     async def join(self, ctx):
         print("trying to join")
