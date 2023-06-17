@@ -31,7 +31,9 @@ class Player(commands.Cog):
             self.server_settings[guild.id]={}
             self.server_settings[guild.id]['is_loop'] = False
             self.server_settings[guild.id]['index'] = 0
+            self.server_settings[guild.id]['cdur'] = 0
             self.server_settings[guild.id]['notify'] = True
+            self.server_settings[guild.id]['embed'] = {}
             self.current[guild.id] = None
 
     def check_perm(self, in_id):
@@ -42,33 +44,37 @@ class Player(commands.Cog):
                 valid = True
         return valid
 
-    async def to_msg(self, ctx, message):
-        await ctx.send(f"```{message}```")
+    def to_msg(self, message):
+        out = f"```{message}```"
+        return out
 
     async def check_queue(self, ctx):
         if len(self.song_que[ctx.guild.id]) > 0:
             await self.play_song(ctx, self.song_que[ctx.guild.id][0])
+            # Song Removal
             if self.server_settings[ctx.guild.id]['is_loop']:
                 self.song_que[ctx.guild.id].append(self.song_que[ctx.guild.id].pop(0))
             else:
-                # self.server_settings[ctx.guild.id]['index'] = 0
                 self.song_que[ctx.guild.id].pop(0)
 
         else:
             self.current[ctx.guild.id] = None
             ctx.voice_client.stop()
 
+        await self.update_embed(ctx)
+
     def to_time(self, seconds):
         total = int(seconds)
         hour, remainder = divmod(total, 3600)
         minute, second = divmod(remainder, 60)
-        return hour, minute, second
+        return "[{:02}:{:02}:{:02}]".format(int(hour), int(minute), int(second))
 
     async def play_song(self, ctx, url):
         bot_client = ctx.voice_client
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             song = ydl.extract_info(url, download=False)
         self.current[ctx.guild.id] = url
+        self.server_settings[ctx.guild.id]['cdur'] = song.get('duration')
         self.current_time[ctx.guild.id] = datetime.now()
         # audio = song.getbestaudio()
         source = discord.FFmpegPCMAudio(song["url"], **self.FFMPEG_OPTIONS)
@@ -76,8 +82,8 @@ class Player(commands.Cog):
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         bot_client.source = discord.PCMVolumeTransformer(bot_client.source,
                                                          volume=0.1)
-        if self.server_settings[ctx.guild.id]['notify']:
-            await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+        #if self.server_settings[ctx.guild.id]['notify']:
+        #    await ctx.send("Now Playing " + vid.vTitle(url) + "!")
 
     async def play_song2(self, ctx, url):
         bot_client = ctx.voice_client
@@ -89,6 +95,30 @@ class Player(commands.Cog):
 
         bot_client.play(source, after=lambda error: self.bot.loop.create_task(self.check_queue(ctx)))
         await ctx.send("Now Playing " + vid.vTitle(url) + "!")
+
+    def embed_handler(self, ctx):
+        print("in the method lol")
+
+        # Now playing field data handling
+        c_title = vid.vTitle(self.current[ctx.guild.id]) if self.current[ctx.guild.id] else "None"
+        c_time = self.to_time(self.server_settings[ctx.guild.id]['cdur'])
+        print('NP field done')
+        # Next up field data handling
+        n_title = vid.vTitle(self.song_que[ctx.guild.id][0]) if self.song_que[ctx.guild.id] else "None"
+        print('NU field done')
+        embed = discord.Embed(title="Toast's Stage",
+                              colour=0x00b0f4)
+
+        embed.set_author(name="", url="https://example.com")
+
+        embed.add_field(name="Now Playing", value=c_title, inline=True)
+        embed.add_field(name="\u200B", value=f"{c_time}", inline=True)
+        embed.add_field(name="\u200B", value="\u200B") # New Line
+        embed.add_field(name="Next up", value=n_title, inline=True)
+        embed.add_field(name="\u200B", value="\u200B", inline=True)
+
+        embed.set_thumbnail(url="https://i.ibb.co/gjVfRx8/egg.png")
+        return embed
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -103,63 +133,83 @@ class Player(commands.Cog):
                     break
 
     @commands.command()
+    async def update_embed(self, ctx):
+        print('testing')
+        print(self.server_settings[ctx.guild.id]['embed'])
+        with open('guildsetting.json', 'r') as gs:
+            jtmp = json.load(gs)
+        print(jtmp)
+        msg = await ctx.fetch_message(jtmp['embedmessage'][str(ctx.guild.id)])
+        print(msg)
+        await msg.edit(embed=self.embed_handler(ctx))
+
+    @commands.command()
     async def makec(self, ctx):
         await ctx.send("Trying to write")
         out = {}
         out['outchannels'] = {}
+        out['embedmessage'] = {}
         for guild in self.bot.guilds:
-            out['outchannels'][guild.id] = None
+            out['outchannels'][str(guild.id)] = None
+            out['embedmessage'][str(guild.id)] = None
         print(out)
-        jsout = json.dumps(out, indent = 4)
+        jsout = json.dumps(out, indent=4)
         with open("guildsetting.json", "w") as gs:
             gs.write(jsout)
         await ctx.send("Written")
 
     @commands.command()
     async def setc(self, ctx):
-        tmp = ''
+        await ctx.message.delete()
         print("starting")
+        embed = self.embed_handler(ctx)
+        print('embed generated')
         with open("guildsetting.json", "r") as gs:
             jtmp = json.load(gs)
         print(jtmp)
-        jtmp['outchannels'][ctx.guild.id] = ctx.channel.id
-        print(jtmp)
-        jout = json.dumps(jtmp, indent = 4)
+        msg = await ctx.send(embed=embed)
+        jtmp['outchannels'][str(ctx.guild.id)] = ctx.channel.id
+        jtmp['embedmessage'][str(ctx.guild.id)] = str(msg.id)
+        print(f"The Jtmp To be out put {jtmp}")
         with open("guildsetting.json", "w") as gs:
-            gs.write(jout)
-    
+            json.dump(jtmp, gs, indent=4)
+        print(f'SetC Writing Complete')
+
     @commands.command(brief="joins the voice channel")
     async def join(self, ctx):
+        await ctx.message.delete()
         print("trying to join")
         usr_client = ctx.author.voice
         bot_client = ctx.voice_client
 
         # checks if bot is already connected to a channel
         if bot_client is None:
-            await ctx.send("Joining " + str(usr_client.channel) + "!")
+            # await ctx.send("Joining " + str(usr_client.channel) + "!")
             await usr_client.channel.connect()
 
         # checks if user is connected to voice channel
-        elif usr_client is None:
-            await ctx.send("You must be connected to a voice channel!")
+        # elif usr_client is None:
+            # await ctx.send("You must be connected to a voice channel!")
 
         # checks if bot is already connected to same channel as caller
-        elif bot_client.channel == usr_client.channel:
-            await ctx.send("I am already connected to the channel!")
+        # elif bot_client.channel == usr_client.channel:
+            # await ctx.send("I am already connected to the channel!")
 
         # checks if bot is connected to another channel as caller
         elif bot_client.channel != usr_client.channel:
             old_channel = str(ctx.voice_client.channel)
             await ctx.voice_client.disconnect()
-            await ctx.send("Leaving " + old_channel + " and joining " + str(usr_client.channel))
+            # await ctx.send("Leaving " + old_channel + " and joining " + str(usr_client.channel))
             await usr_client.channel.connect()
             return
 
     @commands.command(brief="Leaves vc")
     async def leave(self, ctx):
+        await ctx.message.delete()
         await ctx.voice_client.disconnect()
         self.song_que[ctx.guild.id] = []
-        await ctx.send("Goodbye!")
+        self.server_settings[ctx.guild.id]['cdur'] = 0
+        await self.update_embed(ctx)
 
     @commands.command()
     async def shutup(self, ctx):
@@ -168,7 +218,11 @@ class Player(commands.Cog):
 
     @commands.command(brief="Plays songs from YouTube", aliases=['p'])
     async def play(self, ctx, *arg):
-        song = "+".join(arg[:])
+        if ctx.voice_client is None:
+            return
+        content = arg[:]
+        await ctx.message.delete()
+        song = "+".join(content)
         print(song)
         is_url = validators.url(song)
         url = ""
@@ -184,18 +238,21 @@ class Player(commands.Cog):
             v_list = vid.ySearch(song)
             output = "Glemmy found these results"
             for i in range(len(v_list)):
-                hour, minute, second = self.to_time(v_list[i][1])
-                output += f"\n{str(i+1)}: " + "[{:02}:{:02}:{:02}] ".format(int(hour), int(minute), int(second)) + f"{vid.vTitle(v_list[i][0])}"
+                time = self.to_time(v_list[i][1])
+                output += f"\n{str(i+1)}: {time} {vid.vTitle(v_list[i][0])}"
             print(output)
-            await self.to_msg(ctx, output)
+            search_results = await ctx.send(self.to_msg(output))
 
             def check(msg):
                 return msg.author == ctx.author and msg.channel == ctx.channel
 
-            selection = await self.bot.wait_for("message", check = check)
+            selection = await self.bot.wait_for("message", check=check)
+            print(f"selection type {type(selection)}")
             print(v_list)
             url = v_list[int(selection.content)-1][0]
             link = vid.toLink(url)
+            await search_results.delete()
+            await selection.delete()
 
         print(f"Url is {url} Link is {link}")
 
@@ -205,9 +262,10 @@ class Player(commands.Cog):
                 self.song_que[ctx.guild.id].append(url)
                 print(f"added song {url} to que")
                 print(f"here is the current que {self.song_que[ctx.guild.id]} to queue")
-                await ctx.send(vid.vTitle(url) + f" has been added to the queue at position: {queue_len+1}.")
-            else:
-                return await ctx.send("Sorry, I can only queue up to 10 songs, please wait for the current song to finish.")
+                await self.update_embed(ctx)
+                # await ctx.send(vid.vTitle(url) + f" has been added to the queue at position: {queue_len+1}.")
+            #else:
+                # return await ctx.send("Sorry, I can only queue up to 10 songs, please wait for the current song to finish.")
             if not ctx.voice_client.is_playing():
                 await self.check_queue(ctx)
 
@@ -288,15 +346,17 @@ class Player(commands.Cog):
 
     @commands.command(brief="stops playing audio", aliases = ["s"])
     async def skip(self, ctx):
+        await ctx.message.delete()
         bot_client = ctx.voice_client
 
         if bot_client is None:
-            await ctx.send("I'm not connected to any channels!")
+            # await ctx.send("I'm not connected to any channels!")
+            return
         elif bot_client.is_playing():
-            await ctx.send("Skipping!")
+            # await ctx.send("Skipping!")
             bot_client.stop()
         else:
-            await ctx.send("I'm not playing anything!")
+            # await ctx.send("I'm not playing anything!")
             return
 
     @commands.command(brief="stops playing audio")
